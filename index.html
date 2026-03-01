@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mundo Feliz GLB Pro</title>
+
+<style>
+body { margin: 0; overflow: hidden; background: linear-gradient(#87CEEB, #e0f7ff); }
+canvas { display: block; }
+#info {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  color: white;
+  font-family: Arial;
+  background: rgba(0,0,0,0.3);
+  padding: 8px;
+  border-radius: 8px;
+}
+</style>
+</head>
+<body>
+
+<div id="info">
+Click o toca la pantalla para aparecer el modelo<br>
+WASD para mover (PC)
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.160.0/examples/js/loaders/GLTFLoader.js"></script>
+
+<script>
+
+let scene = new THREE.Scene();
+
+let camera = new THREE.PerspectiveCamera(
+  75,
+  window.innerWidth / window.innerHeight,
+  0.1,
+  1000
+);
+
+camera.position.set(0, 2, 5);
+
+let renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.shadowMap.enabled = true;
+document.body.appendChild(renderer.domElement);
+
+// 🌞 Luz sol
+let sun = new THREE.DirectionalLight(0xffffff, 1.2);
+sun.position.set(10, 20, 10);
+sun.castShadow = true;
+scene.add(sun);
+
+// Luz ambiente
+scene.add(new THREE.AmbientLight(0xffffff, 0.5));
+
+// 🌱 Suelo grande
+let groundGeo = new THREE.PlaneGeometry(500, 500);
+let groundMat = new THREE.MeshStandardMaterial({ color: 0x3cb043 });
+let ground = new THREE.Mesh(groundGeo, groundMat);
+ground.rotation.x = -Math.PI / 2;
+ground.receiveShadow = true;
+scene.add(ground);
+
+// 🎥 Movimiento tipo FPS simple
+let keys = {};
+document.addEventListener("keydown", e => keys[e.key.toLowerCase()] = true);
+document.addEventListener("keyup", e => keys[e.key.toLowerCase()] = false);
+
+let speed = 0.1;
+
+function moveCamera() {
+  let direction = new THREE.Vector3();
+  camera.getWorldDirection(direction);
+
+  let right = new THREE.Vector3();
+  right.crossVectors(camera.up, direction).normalize();
+
+  if (keys["w"]) camera.position.add(direction.clone().multiplyScalar(speed));
+  if (keys["s"]) camera.position.add(direction.clone().multiplyScalar(-speed));
+  if (keys["a"]) camera.position.add(right.clone().multiplyScalar(speed));
+  if (keys["d"]) camera.position.add(right.clone().multiplyScalar(-speed));
+}
+
+// 🖱 Movimiento con mouse
+let isMouseDown = false;
+let previousX = 0;
+
+document.addEventListener("mousedown", e => {
+  isMouseDown = true;
+  previousX = e.clientX;
+});
+
+document.addEventListener("mouseup", () => isMouseDown = false);
+
+document.addEventListener("mousemove", e => {
+  if (!isMouseDown) return;
+  let delta = e.clientX - previousX;
+  previousX = e.clientX;
+  camera.rotation.y -= delta * 0.005;
+});
+
+// 📱 Movimiento táctil simple
+document.addEventListener("touchmove", e => {
+  let touch = e.touches[0];
+  camera.rotation.y -= touch.movementX * 0.002 || 0;
+});
+
+// 📦 Cargar modelo
+let loader = new THREE.GLTFLoader();
+
+function spawnModel() {
+  loader.load("modelo.glb", function(gltf) {
+
+    let model = gltf.scene;
+    model.traverse(obj => {
+      if (obj.isMesh) obj.castShadow = true;
+    });
+
+    let direction = new THREE.Vector3();
+    camera.getWorldDirection(direction);
+
+    model.position.copy(camera.position).add(direction.multiplyScalar(3));
+
+    scene.add(model);
+
+  }, undefined, function(error) {
+    console.error("Error cargando modelo:", error);
+  });
+}
+
+document.addEventListener("click", spawnModel);
+document.addEventListener("touchstart", spawnModel);
+
+// 🔄 Resize
+window.addEventListener("resize", () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+// 🎬 Loop
+function animate() {
+  requestAnimationFrame(animate);
+  moveCamera();
+  renderer.render(scene, camera);
+}
+
+animate();
+
+</script>
+</body>
+</html>
